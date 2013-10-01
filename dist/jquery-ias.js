@@ -245,8 +245,10 @@
          * @param int      minimal time the loading should take, defaults to $.ias.default.loaderDelay
          * @return void
          */
+				 
         function loadItems(url, onCompleteHandler, delay)
-        {
+        {		
+						
             var items = [],
                 container,
                 startTime = Date.now(),
@@ -254,23 +256,26 @@
                 self;
 
             delay = delay || opts.loaderDelay;
-
-            $.get(url, null, function (data) {
-                // walk through the items on the next page
-                // and add them to the items array
+						
+						$.ajax({
+							beforeSend: function(jqXHR) {
+								$.xhrPool.abortAll();
+								$.xhrPool.push(jqXHR);
+							},
+							dataType: 'html',
+							url: url,
+							success: function(data) {
                 container = $(opts.container, data).eq(0);
                 if (0 === container.length) {
                     // incase the element is a root element (body > element),
                     // try to filter it
                     container = $(data).filter(opts.container).eq(0);
                 }
-
                 if (container) {
                     container.find(opts.item).each(function () {
                         items.push(this);
                     });
                 }
-
                 if (onCompleteHandler) {
                     self = this;
                     diffTime = Date.now() - startTime;
@@ -281,8 +286,15 @@
                     } else {
                         onCompleteHandler.call(self, data, items);
                     }
-                }
-            }, 'html');
+                }								
+							},
+							complete: function(jqXHR) {
+								var index = $.xhrPool.indexOf(jqXHR);
+								if (index > -1) {
+									$.xhrPool.splice(index, 1);
+								}	
+							}
+						});
         }
 
         /**
@@ -771,3 +783,12 @@
         };
     };
 })(jQuery);
+
+// Build xhrPool Array.
+jQuery.xhrPool = [];
+jQuery.xhrPool.abortAll = function() {
+	jQuery(this).each(function(idx, jqXHR) {
+		jqXHR.abort();
+	});
+  jQuery.xhrPool.length = 0	
+};	
